@@ -22,6 +22,10 @@ class BluetoothConnector(private val context: Context) {
 
 	private val importCompleteSubject: PublishSubject<Unit> = PublishSubject.create()
 
+	private val connectionSubject: PublishSubject<RxBleConnection> = PublishSubject.create()
+
+	val connectionObservable: Observable<RxBleConnection>
+		get() = connectionSubject.asObservable()
 
 	init {
 		client = RxBleClient.create(context)
@@ -90,6 +94,7 @@ class BluetoothConnector(private val context: Context) {
 		readDataSubscription = device
 				.establishConnection(context, true)
 				.observeOn(AndroidSchedulers.mainThread())
+				.doOnNext { c -> connectionSubject.onNext(c) }
 				.doOnUnsubscribe { onImportComplete() }
 				.takeUntil(importCompleteSubject)
 				.flatMap { c ->
@@ -113,6 +118,7 @@ class BluetoothConnector(private val context: Context) {
 
 
 	}
+
 
 	private fun onImportComplete() {
 		Log.d(TAG, "Import Complete")
