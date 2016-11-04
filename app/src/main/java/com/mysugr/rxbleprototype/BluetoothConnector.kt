@@ -45,8 +45,8 @@ class BluetoothConnector(private val context: Context) {
 	fun scan() {
 
 		scanSubscription = client.scanBleDevices()
-				.doOnError { e -> Log.d(TAG, e.message) }
-				.subscribe { r -> onScanResultReceived(r) }
+				.doOnError { e -> Log.d(TAG, e.message ?: "empty msg") }
+				.subscribe({ r -> onScanResultReceived(r) }, { e -> Log.e("FAIL", e.message ?: "", e) })
 	}
 
 	private fun onScanResultReceived(r: RxBleScanResult) {
@@ -97,26 +97,21 @@ class BluetoothConnector(private val context: Context) {
 				.doOnNext { c -> connectionSubject.onNext(c) }
 				.doOnUnsubscribe { onImportComplete() }
 				.takeUntil(importCompleteSubject)
+				.doOnNext { c ->
+					c.setupIndication(GlucometerConstants.CHARACTERISTIC_Record_Access_Control_Point_UUID)
+					c.writeCharacteristic(GlucometerConstants.CHARACTERISTIC_Record_Access_Control_Point_UUID, byteArrayOf(0x01, 0x03, 0x01, next_seq.toByte(), (next_seq shr 8).toByte()))
+				}
 				.flatMap { c ->
-
 					Observable.combineLatest(
 							c.setupNotification(GlucometerConstants.CHARACTERISTIC_BG_MEASUREMENT_UUID),
 							c.setupNotification(GlucometerConstants.CHARACTERISTIC_BG_CONTEXT_UUID),
-							c.setupIndication(GlucometerConstants.CHARACTERISTIC_Record_Access_Control_Point_UUID),
-							{ a, b, d ->
-								a.subscribe { r ->
-									val glucoseObject = GlucoseObject.parseFromCharacteristic(r, "t", device.macAddress, "serial")
-									Log.d(TAG, "result: ${glucoseObject.toString()}")
-
-								}
-								d.subscribe { r -> importCompleteSubject.onNext(Unit) }
-								c
-							})
+							{ a, b -> a })
 				}
-				.flatMap { c -> c.writeCharacteristic(GlucometerConstants.CHARACTERISTIC_Record_Access_Control_Point_UUID, byteArrayOf(0x01, 0x03, 0x01, next_seq.toByte(), (next_seq shr 8).toByte())) }
-				.subscribe({ }, { e -> Log.d(TAG, e.message) })
-
-
+				.flatMap { a -> a }
+				.subscribe({ p ->
+					val glucoseObject = GlucoseObject.parseFromCharacteristic(p, "t", device.macAddress, "serial")
+					Log.d(TAG, "result: ${glucoseObject.toString()}")
+				}, { e -> Log.d(TAG, e.message) })
 	}
 
 

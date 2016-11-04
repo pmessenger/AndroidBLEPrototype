@@ -11,6 +11,7 @@ public class MainActivity
 		extends AppCompatActivity {
 
 	private BluetoothConnector bluetoothConnector;
+	private BluetoothImporter importer;
 	private View scanButton;
 	private View connectButton;
 
@@ -23,6 +24,7 @@ public class MainActivity
 		RxBleClient.setLogLevel(RxBleLog.DEBUG);
 
 		bluetoothConnector = new BluetoothConnector(this);
+		importer = new BluetoothImporter(this);
 
 		scanButton = this.findViewById(R.id.scanButton);
 		scanButton.setOnClickListener(new View.OnClickListener() {
